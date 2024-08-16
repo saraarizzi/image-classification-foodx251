@@ -1,8 +1,12 @@
+import multiprocessing
+import time
+
 import cv2 as cv
 import os
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
 def get_vector(im, bins=32):
@@ -14,42 +18,48 @@ def get_vector(im, bins=32):
     return vector
 
 
-def cosine(a, b):
-    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
-
-
-def ch_analysis(label, bins):
-    data_path = os.path.join(*["data", "clean", "train", label])
+def process_class(class_code):
+    data_path = os.path.join(*["data", "clean", "train", str(class_code)])
     im_names = os.listdir(data_path)
 
-    vectors = []
+    ch_path = os.path.join(*["data", "ch", str(class_code)])
+    os.makedirs(ch_path, exist_ok=True)
+
+    images = []
     for i in im_names:
         im = cv.imread(os.path.join(data_path, i))
         im = cv.cvtColor(im, cv.COLOR_BGR2RGB)
-        v = get_vector(im, bins=bins)
-        vectors.append(v)
+        images.append(im)
 
-    sums = []
-    for v in vectors:
-        similarities = []
-        for i in vectors:
-            similarities.append(cosine(v, i))
-        sums.append(np.sum(similarities))
+    for bins in [8, 16, 32, 64, 128, 256]:
+        # Get histogram vectors
+        vectors = []
+        for im in images:
+            v = get_vector(im, bins=bins)
+            vectors.append(np.array(v, dtype=np.uint8))
 
-    df = pd.DataFrame({
-        "image_name": im_names,
-        "vector": vectors,
-        "sum": sums
-    })
+        pd.DataFrame({
+            "image_name": im_names,
+            "hist": list(map(lambda x: np.array2string(x, separator=","), vectors))
+        }).to_csv(os.path.join(ch_path, f"ch_{bins}.csv"), sep=";", index=False)
 
-    im_names = df.sort_values(by="sum", ascending=True).head(10)["image_name"]
-    for i in im_names:
-        im = cv.imread(os.path.join(data_path, i))
-        im = cv.cvtColor(im, cv.COLOR_BGR2RGB)
-        plt.imshow(im)
-        plt.show()
-        plt.close()
+    print(f"Done --- {class_code + 1}/251")
+    return
 
 
 if __name__ == "__main__":
-    ch_analysis("63", 16)
+    start_time = time.time()
+    print(f"Started at: {time.strftime(DATE_FORMAT)}")
+
+    classes_data = pd.read_csv("data/class_list.txt", sep=" ", header=None)
+    classes_data.columns = ["code", "label"]
+    classes_codes = classes_data.code.tolist()
+
+    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+        pool.map(process_class, classes_codes)
+
+    print(f"Ended at: {time.strftime(DATE_FORMAT)}")
+
+    end_time = time.time()
+    duration = end_time - start_time
+    print(f"Script total duration: {duration:.2f} seconds")
