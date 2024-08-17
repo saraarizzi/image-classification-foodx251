@@ -9,34 +9,46 @@ import pandas as pd
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
-def get_vector(im, bins=32):
-    r = cv.calcHist(im, [0], None, [bins], [0, 256])
-    g = cv.calcHist(im, [1], None, [bins], [0, 256])
-    b = cv.calcHist(im, [2], None, [bins], [0, 256])
-    vector = np.concatenate([r, g, b], axis=0)
-    vector = vector.reshape(-1)
+def get_vector(im, bins):
+    rgb_planes = cv.split(im)
+    r = cv.calcHist(rgb_planes, [0], None, [bins], [0, 256], accumulate=False)
+    g = cv.calcHist(rgb_planes, [1], None, [bins], [0, 256], accumulate=False)
+    b = cv.calcHist(rgb_planes, [2], None, [bins], [0, 256], accumulate=False)
+
+    vector = np.concatenate([
+        np.array(r).astype(np.uint32).flatten(),
+        np.array(g).astype(np.uint32).flatten(),
+        np.array(b).astype(np.uint32).flatten()
+    ], axis=0)
+
     return vector
 
 
 def process_class(class_code):
     data_path = os.path.join(*["data", "clean", "train", str(class_code)])
-    im_names = os.listdir(data_path)
+    image_info_path = os.path.join(*["data", "raw", "train_info_dirty.csv"])
+    image_data = pd.read_csv(image_info_path, header=None, names=["file", "class"])
+    im_names = image_data[image_data["class"] == class_code]["file"].values
 
     ch_path = os.path.join(*["data", "ch", str(class_code)])
     os.makedirs(ch_path, exist_ok=True)
 
     images = []
     for i in im_names:
-        im = cv.imread(os.path.join(data_path, i))
-        im = cv.cvtColor(im, cv.COLOR_BGR2RGB)
-        images.append(im)
+        try:
+            im = cv.imread(os.path.join(data_path, i))
+            im = cv.cvtColor(im, cv.COLOR_BGR2RGB)
+            images.append(im)
+        except Exception:
+            print(i)
+            raise Exception(f"Exception in reading images - class {class_code}, image {i}")
 
     for bins in [8, 16, 32, 64, 128, 256]:
         # Get histogram vectors
         vectors = []
         for im in images:
             v = get_vector(im, bins=bins)
-            vectors.append(np.array(v, dtype=np.uint8))
+            vectors.append(v)
 
         pd.DataFrame({
             "image_name": im_names,
