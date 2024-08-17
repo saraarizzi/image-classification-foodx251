@@ -19,7 +19,7 @@ def unzip_data():
 
 def format_class_as_folder():
     # Load the CSV file
-    csv_path = os.path.join(RAW_DATA_PATH, "train_info_dirty.csv")  # Replace with the path to your CSV file
+    csv_path = os.path.join(RAW_DATA_PATH, "train_info_dirty.csv")
     data = pd.read_csv(csv_path, header=None, names=["file", "class"])
 
     # Base directory where the files are currently located
