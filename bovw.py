@@ -76,14 +76,16 @@ def process_class(class_code):
     os.makedirs(bovw_path, exist_ok=True)
 
     data_path = os.path.join(*["data", "clean", "train", f"{class_code}"])
-    images_names = os.listdir(data_path)
+    image_info_path = os.path.join(*["data", "raw", "train_info_dirty.csv"])
+    image_data = pd.read_csv(image_info_path, header=None, names=["file", "class"])
+    images_names = image_data[image_data["class"] == class_code]["file"].to_list()
 
     # Get descriptors for all the images in the class
     images_desc, images_to_remove = get_desc(images_names, data_path)
     for im in images_to_remove:
         images_names.remove(im)
 
-    for k in [5, 15, 30]:
+    for k in [10, 20, 40, 80]:
         # Create visual words
         codebook = get_codebook(images_desc, k)
 
