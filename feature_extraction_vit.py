@@ -11,6 +11,7 @@ import torch.nn as nn
 
 
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+HF_PATH = os.path.join("data", "hf_vit_food")
 
 
 class ViTPooler(nn.Module):
@@ -30,8 +31,8 @@ class ViTPooler(nn.Module):
 
 def read_model():
     # Load local files
-    pr = AutoImageProcessor.from_pretrained("models")
-    m = AutoModelForImageClassification.from_pretrained("models")
+    pr = AutoImageProcessor.from_pretrained(HF_PATH)
+    m = AutoModelForImageClassification.from_pretrained(HF_PATH)
 
     # Add pooler
     new_model = ViTModel(config=m.config)
@@ -88,10 +89,11 @@ if __name__ == "__main__":
     hf_mod = AutoModelForImageClassification.from_pretrained("nateraw/food")
 
     # Save locally
-    os.makedirs(os.path.join("data", "hf_vit_food"), exist_ok=True)
-    hf_pre.save_pretrained(os.path.join("data", "hf_vit_food"))
-    hf_mod.save_pretrained(os.path.join("data", "hf_vit_food"))
+    os.makedirs(HF_PATH, exist_ok=True)
+    hf_pre.save_pretrained(HF_PATH)
+    hf_mod.save_pretrained(HF_PATH)
 
+    # Start processing
     start_time = time.time()
     print(f"Started at: {time.strftime(DATE_FORMAT)}")
 
