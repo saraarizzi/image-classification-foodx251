@@ -1,6 +1,9 @@
 import ast
 import os
+import warnings
+warnings.filterwarnings("error")
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -9,7 +12,11 @@ LABELED_PATH = os.path.join("data", "manual_labelling")
 
 
 def get_cosine_similarity(a, b):
-    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+    try:
+        cs = np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+        return cs
+    except RuntimeWarning:
+        return 0  # a and b are zero vectors
 
 
 def get_ch_vectors(cl_code, bins):
@@ -28,6 +35,19 @@ def get_ch_vectors(cl_code, bins):
     return ch_class
 
 
+def get_bovw_vectors(code, dim):
+    if dim not in [10, 20, 40, 80]:
+        raise Exception("Dim must be 10, 20, 40, or 80!")
+
+    bovw_path = os.path.join(*["data", "bovw", str(code)])
+    bovw_class = pd.read_csv(os.path.join(bovw_path, f"tfidf_{dim}.csv"), sep=";", header=0)
+    bovw_class["tfidf"] = bovw_class["tfidf"].apply(
+        lambda x: np.array(ast.literal_eval(x.replace('\n', '').replace('  ', ' ').strip())))
+
+    # Return all images bovw
+    return bovw_class
+
+
 def get_fe_vectors(cl_code, data):
     fe_path = os.path.join(*["data", "fe", str(cl_code)])
     fe_class = pd.read_csv(os.path.join(fe_path, f"vit_{data}.csv"), sep=";", header=0)
@@ -44,7 +64,11 @@ def get_similarities(df_vectors):
     :param df_vectors: contains images names and vector representations
     :type df_vectors: pd.DataFrame
     """
-    df_vectors.columns = ["image_name", "vector"]
+    if len(df_vectors.columns) == 2:
+        df_vectors.columns = ["image_name", "vector"]
+    else:
+        df_vectors.columns = ["image_name", "d", "vector"]
+
     images_names = df_vectors["image_name"].to_list()
     vectors = df_vectors["vector"].to_list()
 
@@ -53,7 +77,8 @@ def get_similarities(df_vectors):
     for i in vectors:
         image_sim = 0
         for j in vectors:
-            image_sim += get_cosine_similarity(i, j)
+            cosine_sim = get_cosine_similarity(i, j)
+            image_sim += cosine_sim
         all_sim.append(image_sim / len(vectors))
 
     df_similarities = pd.DataFrame({
@@ -96,25 +121,29 @@ def get_similarities_chat(df_vectors):
 
 
 def get_outliers(df_similarities):
+
+    df = df_similarities.copy(deep=True)
     # Calculate threshold
-    q1 = np.percentile(df_similarities["sim"].to_list(), 25)
-    iqr = np.percentile(df_similarities["sim"].to_list(), 75) - q1
+    q1 = np.percentile(df["sim"].to_list(), 25)
+    iqr = np.percentile(df["sim"].to_list(), 75) - q1
     threshold = q1 - 1.5 * iqr
 
     # Images with similarity score lte than threshold
-    df_similarities["predicted"] = df_similarities["sim"].apply(lambda x: 1 if x <= threshold else 0)
+    df["predicted"] = df["sim"].apply(lambda x: 1 if x <= threshold else 0)
 
-    return df_similarities
+    return df
 
 
 def get_first_quartile(df_similarities):
+
+    df = df_similarities.copy(deep=True)
     # Calculate threshold
-    q1 = np.percentile(df_similarities["sim"].to_list(), 25)
+    q1 = np.percentile(df["sim"].to_list(), 25)
 
     # Images with similarity score lte than threshold
-    df_similarities["predicted"] = df_similarities["sim"].apply(lambda x: 1 if x <= q1 else 0)
+    df["predicted"] = df["sim"].apply(lambda x: 1 if x <= q1 else 0)
 
-    return df_similarities
+    return df
 
 
 def check_accuracy(cl_code, to_rem):
@@ -139,19 +168,37 @@ def check_accuracy(cl_code, to_rem):
 if __name__ == "__main__":
 
     classes = [196, 15, 0, 233, 57, 25]
-    classes_names = ["omelette", "seaweed_salad", "macaron", "scotch_egg", "gnocchi", "ramen"]
+    classes_names = ["omelette", "seaweed", "macaron", "scotch", "gnocchi", "ramen"]
 
     for c, c_name in zip(classes, classes_names):
-        # vectors = get_ch_vectors(c, bins=256)
-        vectors = get_fe_vectors(c, "imagenet")
+        vectors = get_ch_vectors(c, bins=8)
+        # vectors = get_fe_vectors(c, "food")
+        # vectors = get_bovw_vectors(c, 80)
         similarities = get_similarities(vectors)
-        to_remove = get_first_quartile(similarities)
 
-        # print(f"For class {c_name}, to remove {len(to_remove[to_remove['predicted']==1])} out of {len(to_remove)}.")
+        plt.figure(figsize=(3,6))
+        plt.boxplot(similarities["sim"].to_list())
+        plt.xticks([])
+        plt.ylabel("Mean Cosine Similarity")
+        plt.title(f"{c_name}, 8 bins")
+        plt.show()
+        print("ok")
+
+
+        # to_remove_quartile = get_first_quartile(similarities) # 130
+        # to_remove_outliers = get_outliers(similarities)
+
+        """
+        print(
+            f"For class {c_name} \t"
+            f"OUTLIERS {np.round((len(to_remove_outliers[to_remove_outliers['predicted']==1]) / len(to_remove_outliers))*100, 2)}  \t"
+            f"FIRST QUARTILE {np.round((len(to_remove_quartile[to_remove_quartile['predicted']==1]) / len(to_remove_quartile))*100, 2)}"
+        )
+        """
 
         # Check correctness
-        precision, fpr = check_accuracy(c, to_remove)
+        # precision, fpr = check_accuracy(c, to_remove)
 
-        print(f"Precision {np.round(precision*100, 2)}%"
-              f"\t FPR {np.round(fpr*100, 2)}%"
-              f"\t --> class {c_name} ")
+        # print(f"Precision {np.round(precision*100, 2)}%"
+              # f"\t FPR {np.round(fpr*100, 2)}%"
+              # f"\t --> class {c_name} ")
