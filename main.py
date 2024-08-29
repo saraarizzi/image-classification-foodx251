@@ -12,7 +12,7 @@ from torch import nn
 # from torchinfo import summary
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
-from torchvision.models import mobilenet_v3_small, MobileNet_V3_Small_Weights
+from torchvision.models import mobilenet_v3_small
 from torch.utils.data import DataLoader
 
 # device
@@ -24,6 +24,28 @@ GDRIVE = False
 torch.manual_seed(0)
 np.random.seed(0)
 random.seed(0)
+
+
+def show_history(hist):
+    plt.figure(figsize=(10, 4))
+
+    plt.subplot(1, 2, 1)
+    plt.plot(hist.get("train_loss"), label='Train')
+    plt.plot(hist.get("val_loss"), label='Val')
+    plt.legend()
+    plt.title("Loss")
+
+    plt.subplot(1, 2, 2)
+    plt.plot(hist.get("train_acc1"), label='Train Acc@1', ls="-", color="gray")
+    plt.plot(hist.get("train_acc3"), label='Train Acc@3', ls="-", color="gray")
+    plt.plot(hist.get("train_acc5"), label='Train Acc@5', ls="-", color="gray")
+    plt.plot(hist.get("val_acc1"), label='Val Acc@1', color="blue")
+    plt.plot(hist.get("val_acc3"), label='Val Acc@3', color="blue")
+    plt.plot(hist.get("val_acc5"), label='Val Acc@5', color="blue")
+    plt.legend()
+    plt.title("Accuracy")
+
+    plt.show()
 
 
 def accuracy_at_k(predictions, y_one_hot, k=1):
@@ -116,19 +138,13 @@ def train_step(model, data_loader, loss_fn, optimizer, scheduler=None):
         # Clean Cache
         torch.cuda.empty_cache()
 
-    # Scheduler step
-    lr = None
-    if scheduler is not None:
-        scheduler.step()
-        lr = scheduler.get_last_lr()
-
     # Print loss and accuracy
     train_loss /= len(data_loader)
     train_acc1 /= len(data_loader)
     train_acc3 /= len(data_loader)
     train_acc5 /= len(data_loader)
 
-    return train_loss, train_acc1, train_acc3, train_acc5, lr
+    return train_loss, train_acc1, train_acc3, train_acc5
 
 
 def val_step(model, data_loader, loss_fn):
@@ -157,12 +173,18 @@ def val_step(model, data_loader, loss_fn):
             # Clean Cache
             torch.cuda.empty_cache()
 
+        # Scheduler step
+        lr = None
+        if scheduler is not None:
+            scheduler.step(val_loss/len(data_loader))
+            lr = scheduler.get_last_lr()
+
     val_loss /= len(data_loader)
     val_acc1 /= len(data_loader)
     val_acc3 /= len(data_loader)
     val_acc5 /= len(data_loader)
 
-    return val_loss, val_acc1, val_acc3, val_acc5
+    return val_loss, val_acc1, val_acc3, val_acc5, lr
 
 
 def train(model, train_loader, test_loader, optimizer, loss_fn, epochs, early_stop, scheduler=None):
@@ -178,12 +200,12 @@ def train(model, train_loader, test_loader, optimizer, loss_fn, epochs, early_st
     }
 
     for epoch in range(epochs):
-        train_loss, ta1, ta3, ta5, lr = train_step(model=model,
+        train_loss, ta1, ta3, ta5 = train_step(model=model,
                                                    data_loader=train_loader,
                                                    loss_fn=loss_fn,
                                                    optimizer=optimizer,
                                                    scheduler=scheduler)
-        val_loss, va1, va3, va5 = val_step(model=model,
+        val_loss, va1, va3, va5, lr = val_step(model=model,
                                            data_loader=test_loader,
                                            loss_fn=loss_fn)
         # Print out what's happening
@@ -253,7 +275,7 @@ if __name__ == "__main__":
 
     # Hyper Parameters
     BATCH_SIZE = 128
-    EPOCHS = 100
+    EPOCHS = 150
     LOSS_FN = nn.CrossEntropyLoss()
     LEARNING_RATE = 1e-3
 
@@ -263,11 +285,12 @@ if __name__ == "__main__":
     m = get_mob_net()
     m = m.to(DEVICE)
     optimizer = torch.optim.Adam(m.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS, eta_min=1e-4)
-    early_stopping = EarlyStopping(patience=5, mode='min')
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS, eta_min=1e-4)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=1e-1, patience=3)
+    early_stopping = EarlyStopping(patience=10, mode='min')
 
-    model_path = os.path.join(*[DATA_PATH, "saved_models", "mobilenetv3_from_scratch.pt"])
-    history_path = os.path.join(*[DATA_PATH, "saved_models", "history_mobilenetv3_from_scratch.pkl"])
+    model_path = os.path.join(*[DATA_PATH, "saved_models", "02_mobilenetv3_from_scratch.pt"])
+    history_path = os.path.join(*[DATA_PATH, "saved_models", "02_history_mobilenetv3_from_scratch.pkl"])
     if True:
         history = train(m, train_loader, val_loader, optimizer,
                         LOSS_FN, EPOCHS, early_stopping, scheduler)
@@ -276,3 +299,5 @@ if __name__ == "__main__":
     else:
         m.load_state_dict(torch.load(model_path, map_location=torch.device(DEVICE)))
         history = pickle.load(open(history_path, "rb"))
+
+    show_history(history)
