@@ -1,14 +1,15 @@
 import ast
 import os
 import warnings
-warnings.filterwarnings("error")
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-CH_PATH = os.path.join("data", "ch")
+warnings.filterwarnings("error")
+
+DATA_PATH = os.path.join(*["data", "clean", "train"])
 LABELED_PATH = os.path.join("data", "manual_labelling")
+REMOVED_PATH = os.path.join("data", "removed")
 
 
 def get_cosine_similarity(a, b):
@@ -70,47 +71,16 @@ def get_similarities(df_vectors):
         df_vectors.columns = ["image_name", "d", "vector"]
 
     images_names = df_vectors["image_name"].to_list()
-    vectors = df_vectors["vector"].to_list()
+    vecs = df_vectors["vector"].to_list()
 
     # Loop over images and calculate cosine similarity between all
     all_sim = []
-    for i in vectors:
+    for i in vecs:
         image_sim = 0
-        for j in vectors:
+        for j in vecs:
             cosine_sim = get_cosine_similarity(i, j)
             image_sim += cosine_sim
-        all_sim.append(image_sim / len(vectors))
-
-    df_similarities = pd.DataFrame({
-        "image_name": images_names,
-        "sim": all_sim
-    })
-
-    return df_similarities
-
-
-def get_similarities_chat(df_vectors):
-    """
-
-    :param df_vectors: contains images names and vector representations
-    :type df_vectors: pd.DataFrame
-    """
-
-    df_vectors.columns = ["image_name", "vector"]
-    images_names = df_vectors["image_name"].to_list()
-    vectors = df_vectors["vector"].to_list()
-
-    vectors = np.array(vectors)
-
-    # Normalize the vectors
-    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
-    normalized_vectors = vectors / norms
-
-    # Compute the cosine similarity matrix (dot product)
-    cosine_sim_matrix = np.dot(normalized_vectors, normalized_vectors.T)
-
-    # Sum the similarities for each vector
-    all_sim = np.sum(cosine_sim_matrix, axis=1) / len(vectors)
+        all_sim.append(image_sim / len(vecs))
 
     df_similarities = pd.DataFrame({
         "image_name": images_names,
@@ -121,7 +91,6 @@ def get_similarities_chat(df_vectors):
 
 
 def get_outliers(df_similarities):
-
     df = df_similarities.copy(deep=True)
     # Calculate threshold
     q1 = np.percentile(df["sim"].to_list(), 25)
@@ -135,7 +104,6 @@ def get_outliers(df_similarities):
 
 
 def get_first_quartile(df_similarities):
-
     df = df_similarities.copy(deep=True)
     # Calculate threshold
     q1 = np.percentile(df["sim"].to_list(), 25)
@@ -147,7 +115,6 @@ def get_first_quartile(df_similarities):
 
 
 def check_accuracy(cl_code, to_rem):
-
     label_path = os.path.join(LABELED_PATH, f"{cl_code}_to_remove.csv")
 
     labeled = pd.read_csv(label_path, usecols=range(1, 3))
@@ -165,40 +132,38 @@ def check_accuracy(cl_code, to_rem):
     return p, f
 
 
+def remove_files(code, df_remove):
+
+    folder = os.path.join(DATA_PATH, str(code))
+
+    df_to_remove = df_remove[df_remove["predicted"] == 1]["image_name"]
+
+    # Save files to remove
+    df_to_remove.to_csv(os.path.join(REMOVED_PATH, f"{code}_removed.csv"), index=False)
+
+    list_to_remove = df_to_remove.to_list()
+
+    for image_name in list_to_remove:
+        try:
+            os.remove(os.path.join(folder, image_name))
+        except FileNotFoundError:
+            continue
+
+
 if __name__ == "__main__":
 
-    classes = [196, 15, 0, 233, 57, 25]
-    classes_names = ["omelette", "seaweed", "macaron", "scotch", "gnocchi", "ramen"]
+    os.makedirs(REMOVED_PATH, exist_ok=True)
 
-    for c, c_name in zip(classes, classes_names):
-        vectors = get_ch_vectors(c, bins=8)
-        # vectors = get_fe_vectors(c, "food")
-        # vectors = get_bovw_vectors(c, 80)
+    classes_data = pd.read_csv(os.path.join("data", "class_list.txt"), sep=" ", header=None)
+    classes_data.columns = ["code", "label"]
+    classes_codes = classes_data["code"].tolist()
+
+    for c in classes_codes:
+        vectors = get_fe_vectors(c, "imagenet")
         similarities = get_similarities(vectors)
+        to_remove = get_first_quartile(similarities)
 
-        plt.figure(figsize=(3,6))
-        plt.boxplot(similarities["sim"].to_list())
-        plt.xticks([])
-        plt.ylabel("Mean Cosine Similarity")
-        plt.title(f"{c_name}, 8 bins")
-        plt.show()
-        print("ok")
+        remove_files(c, to_remove)
 
+        print(f"Progressing ... {c+1}/251 ... Removed {len(to_remove[to_remove['predicted']==1])}/{len(to_remove)}")
 
-        # to_remove_quartile = get_first_quartile(similarities) # 130
-        # to_remove_outliers = get_outliers(similarities)
-
-        """
-        print(
-            f"For class {c_name} \t"
-            f"OUTLIERS {np.round((len(to_remove_outliers[to_remove_outliers['predicted']==1]) / len(to_remove_outliers))*100, 2)}  \t"
-            f"FIRST QUARTILE {np.round((len(to_remove_quartile[to_remove_quartile['predicted']==1]) / len(to_remove_quartile))*100, 2)}"
-        )
-        """
-
-        # Check correctness
-        # precision, fpr = check_accuracy(c, to_remove)
-
-        # print(f"Precision {np.round(precision*100, 2)}%"
-              # f"\t FPR {np.round(fpr*100, 2)}%"
-              # f"\t --> class {c_name} ")
