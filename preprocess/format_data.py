@@ -5,34 +5,30 @@ import shutil
 import pandas as pd
 
 RAW_DATA_PATH = os.path.join(*["..", "data", "raw"])
-TRAIN_ZIP = os.path.join(RAW_DATA_PATH, "train_set.zip")
-TRAIN_LABELS = os.path.join(RAW_DATA_PATH, "train_info_dirty.csv")
+FILE_ZIP = os.path.join(RAW_DATA_PATH, "val_set_degraded_2023.zip")
 CLEAN_DATA_PATH = os.path.join(*["..", "data", "clean"])
 
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
 def unzip_data():
-    with zipfile.ZipFile(TRAIN_ZIP, "r") as zf:
+    with zipfile.ZipFile(FILE_ZIP, "r") as zf:
         zf.extractall(RAW_DATA_PATH)
 
 
 def format_class_as_folder():
     # Load the CSV file
-    csv_path = os.path.join(RAW_DATA_PATH, "train_info_dirty.csv")
+    csv_path = os.path.join(RAW_DATA_PATH, "val_info.csv")
     data = pd.read_csv(csv_path, header=None, names=["file", "class"])
 
     # Base directory where the files are currently located
-    base_dir = os.path.join(RAW_DATA_PATH, "train_set")
+    base_dir = os.path.join(RAW_DATA_PATH, "val_set_degraded")
 
     # Directory where you want to create the class folders
-    output_dir = os.path.join(CLEAN_DATA_PATH, "train")
+    output_dir = os.path.join(CLEAN_DATA_PATH, "val_degraded")
 
     # Ensure the output directory exists
     os.makedirs(output_dir, exist_ok=True)
-
-    # Lists to store exceptions
-    unprocessed_files, errors = [], []
 
     # Iterate through each row in the CSV
     for index, row in data.iterrows():
@@ -51,9 +47,9 @@ def format_class_as_folder():
 
 
 def zip_data():
-    with zipfile.ZipFile(os.path.join(CLEAN_DATA_PATH, "train_set.zip"), "w", zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(os.path.join(CLEAN_DATA_PATH, "val_degraded.zip"), "w", zipfile.ZIP_DEFLATED) as zf:
         # Walk through the directory structure
-        for root, dirs, files in os.walk(CLEAN_DATA_PATH):
+        for root, dirs, files in os.walk(os.path.join(CLEAN_DATA_PATH, "val_degraded")):
             for file in files:
                 # Create the full filepath by joining the root with the file
                 full_path = os.path.join(root, file)
