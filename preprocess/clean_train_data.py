@@ -12,9 +12,10 @@ from torchvision.transforms import v2
 
 warnings.filterwarnings("error")
 
-DATA_PATH = os.path.join(*["data", "clean", "train"])
-LABELED_PATH = os.path.join("data", "manual_labelling")
-REMOVED_PATH = os.path.join("data", "removed")
+DATA_PATH = os.path.join("..", "data")
+TRAIN_PATH = os.path.join(*[DATA_PATH, "clean", "train"])
+LABELED_PATH = os.path.join(DATA_PATH, "manual_labelling")
+REMOVED_PATH = os.path.join(DATA_PATH, "removed")
 
 AUG_TECHS = [
     v2.RandomHorizontalFlip(p=1),
@@ -27,9 +28,9 @@ AUG_TECHS = [
 
 
 def zip_data():
-    with zipfile.ZipFile(os.path.join(*["data", "clean", "train.zip"]), "w", zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(os.path.join(*[DATA_PATH, "clean", "train.zip"]), "w", zipfile.ZIP_DEFLATED) as zf:
         # Walk through the directory structure
-        for root, dirs, files in os.walk(os.path.join(*["data", "clean", "train"])):
+        for root, dirs, files in os.walk(os.path.join(TRAIN_PATH)):
             for file in files:
                 # Create the full filepath by joining the root with the file
                 full_path = os.path.join(root, file)
@@ -47,7 +48,7 @@ def get_cosine_similarity(a, b):
 
 
 def get_fe_vectors(cl_code, data):
-    fe_path = os.path.join(*["data", "fe", str(cl_code)])
+    fe_path = os.path.join(*[DATA_PATH, "fe", str(cl_code)])
     fe_class = pd.read_csv(os.path.join(fe_path, f"vit_{data}.csv"), sep=";", header=0)
     fe_class["vit_feature"] = fe_class["vit_feature"].apply(
         lambda x: np.array(ast.literal_eval(x.replace('\n', '').replace('  ', ' ').strip())))
@@ -100,7 +101,7 @@ def get_first_quartile(df_similarities):
 
 def remove_files(code, df_remove):
 
-    folder = os.path.join(DATA_PATH, str(code))
+    folder = os.path.join(TRAIN_PATH, str(code))
 
     df_to_remove = df_remove[df_remove["predicted"] == 1]["image_name"]
 
@@ -118,7 +119,7 @@ def remove_files(code, df_remove):
 
 def downsize_class(class_code):
 
-    folder = os.path.join(DATA_PATH, str(class_code))
+    folder = os.path.join(TRAIN_PATH, str(class_code))
     file_names = os.listdir(folder)
     rnd_to_remove = np.random.choice(file_names, size=(len(file_names)-350), replace=False)
 
@@ -131,7 +132,7 @@ def downsize_class(class_code):
 
 def augment(class_code, img_name, technique):
 
-    image = Image.open(os.path.join(*[DATA_PATH, str(class_code), img_name]))
+    image = Image.open(os.path.join(*[TRAIN_PATH, str(class_code), img_name]))
 
     transform = v2.Compose([
         v2.ToImage(), v2.ToDtype(torch.float32, scale=True), v2.Resize((224, 224)),
@@ -141,12 +142,12 @@ def augment(class_code, img_name, technique):
     transformed_image = transform(image)
     transformed_image_pil = v2.ToPILImage()(transformed_image)
 
-    save_path = os.path.join(*[DATA_PATH, str(class_code), f"aug_{technique[0]._get_name()}_{img_name}"])
+    save_path = os.path.join(*[TRAIN_PATH, str(class_code), f"aug_{technique[0]._get_name()}_{img_name}"])
     transformed_image_pil.save(save_path)
 
 
 def upsize_class(class_code):
-    folder = os.path.join(DATA_PATH, str(class_code))
+    folder = os.path.join(TRAIN_PATH, str(class_code))
     file_names = os.listdir(folder)
     to_create = 350 - len(file_names)
 
@@ -198,7 +199,7 @@ if __name__ == "__main__":
 
     os.makedirs(REMOVED_PATH, exist_ok=True)
 
-    classes_data = pd.read_csv(os.path.join("data", "class_list.txt"), sep=" ", header=None)
+    classes_data = pd.read_csv(os.path.join(DATA_PATH, "class_list.txt"), sep=" ", header=None)
     classes_data.columns = ["code", "label"]
     classes_codes = classes_data["code"].tolist()
     classes_names = classes_data["label"].tolist()
@@ -216,7 +217,7 @@ if __name__ == "__main__":
     # Check samples distribution over classes
     num_samples = []
     for c in classes_codes:
-        num_samples.append(len(os.listdir(os.path.join(DATA_PATH, str(c)))))
+        num_samples.append(len(os.listdir(os.path.join(TRAIN_PATH, str(c)))))
 
     df_samples = pd.DataFrame({
         "code": classes_codes,
@@ -233,7 +234,7 @@ if __name__ == "__main__":
         "samples": num_samples,
         "removed": tot_removed,
         "added": tot_added
-    }).to_csv(os.path.join(*["data", "clean", "balancing_info.csv"]), index=False)
+    }).to_csv(os.path.join(*[DATA_PATH, "clean", "balancing_info.csv"]), index=False)
 
     # Zip final data
     zip_data()

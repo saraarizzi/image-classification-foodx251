@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 
 from utils import get_data, MobileNetV3Small, EarlyStopping, show_history, train
 
-DATA_PATH = "data"
+DATA_PATH = "../data"
 TRAIN_DATA_PATH = os.path.join(DATA_PATH, "clean/train")
 VAL_DATA_PATH = os.path.join(DATA_PATH, "clean/val")
 

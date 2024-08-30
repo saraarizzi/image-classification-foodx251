@@ -11,7 +11,7 @@ import torch.nn as nn
 
 
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-HF_PATH = os.path.join("data", "hf")
+HF_PATH = os.path.join("../data", "hf")
 
 
 class ViTPooler(nn.Module):
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     start_time = time.time()
     print(f"Started at: {time.strftime(DATE_FORMAT)}")
 
-    classes_data = pd.read_csv(os.path.join("data", "class_list.txt"), sep=" ", header=None)
+    classes_data = pd.read_csv(os.path.join("../data", "class_list.txt"), sep=" ", header=None)
     classes_data.columns = ["code", "label"]
     classes_codes = classes_data.code.tolist()
 
