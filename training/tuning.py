@@ -8,12 +8,20 @@ from torch.utils.data import DataLoader
 
 from utils import get_data, MobileNetV3Small, EarlyStopping, show_history, train
 
-DATA_PATH = "../data"
-TRAIN_DATA_PATH = os.path.join(DATA_PATH, "clean/train")
-VAL_DATA_PATH = os.path.join(DATA_PATH, "clean/val")
+DATA_PATH = os.path.join("..", "data")
+TRAIN_DATA_PATH = os.path.join(DATA_PATH, "train")
+VAL_DATA_PATH = os.path.join(DATA_PATH, "val")
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 TRAIN = True
+
+
+def get_model(name):
+
+    if name == "mobilenet":
+        return MobileNetV3Small(251)
+    elif name == "mobilenet_freeze":
+        return MobileNetV3Small(251, freeze=True)
 
 
 if __name__ == "__main__":
@@ -36,7 +44,7 @@ if __name__ == "__main__":
         val_loader = DataLoader(val_ds, batch_size=d.get("batch_size"), shuffle=True)
 
         # Model instance
-        m = MobileNetV3Small(251).to(DEVICE)
+        m = get_model(d.get("model")).to(DEVICE)
 
         # Num Epochs, Loss, Optimizer, Scheduler, Early Stopping
         epochs = d.get("epochs")

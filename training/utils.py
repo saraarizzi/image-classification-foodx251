@@ -3,17 +3,23 @@ import torch
 from matplotlib import pyplot as plt
 from sklearn.model_selection import train_test_split
 from torch import nn
-from torch.utils.data import SubsetRandomSampler, Subset
+from torch.utils.data import Subset
 from torchvision.datasets import ImageFolder
-from torchvision.models import mobilenet_v3_small
+from torchvision.models import mobilenet_v3_small, vit_b_16
 from torchvision.transforms import v2
 
 
 class MobileNetV3Small(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, freeze=False):
         super(MobileNetV3Small, self).__init__()
         self.model = mobilenet_v3_small(weights="DEFAULT")
         self.model.classifier[3] = nn.Linear(self.model.classifier[3].in_features, num_classes)
+
+        if freeze:
+            for param in self.model.parameters():
+                param.requires_grad = False
+            for param in self.model.classifier[3].parameters():
+                param.requires_grad = True
 
     def forward(self, x):
         return self.model(x)
@@ -58,9 +64,9 @@ def get_transforms(level=None):
 
     if level == "light":
         train_list += [
-            v2.RandomHorizontalFlip(p=1),
-            v2.RandomVerticalFlip(p=1),
-            v2.RandomErasing(p=1),
+            v2.RandomHorizontalFlip(p=0.5),
+            v2.RandomVerticalFlip(p=0.5),
+            v2.RandomErasing(p=0.5),
             v2.RandomRotation(degrees=45),
             v2.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.9, 1.1))
         ]
@@ -69,10 +75,10 @@ def get_transforms(level=None):
             v2.RandomHorizontalFlip(p=0.5),
             v2.RandomVerticalFlip(p=0.5),
             v2.RandomRotation(degrees=45),
-            v2.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.2),
-            v2.GaussianBlur(kernel_size=3, sigma=1.5),
+            # v2.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.2),
+            # v2.GaussianBlur(kernel_size=3, sigma=1.5),
             v2.RandomInvert(p=0.5),
-            v2.RandomGrayscale(p=0.5),
+            # v2.RandomGrayscale(p=0.5),
             v2.RandomSolarize(p=0.5, threshold=0.2),
             v2.RandomPosterize(p=0.5, bits=4)
         ]
