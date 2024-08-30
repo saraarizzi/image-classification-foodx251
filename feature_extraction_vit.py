@@ -128,7 +128,7 @@ if __name__ == "__main__":
         AutoImageProcessor, AutoModelForImageClassification, "nateraw/food", "food"
     )
 
-    # ViT trained on ImageNet21k
+    # ViT trained on ImageNet-21k
     download_model(
         ViTImageProcessor, ViTModel, "google/vit-base-patch16-224-in21k", "imagenet"
     )

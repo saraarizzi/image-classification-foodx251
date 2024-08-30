@@ -5,33 +5,51 @@ import shutil
 import pandas as pd
 
 RAW_DATA_PATH = os.path.join(*["..", "data", "raw"])
-FILE_ZIP = os.path.join(RAW_DATA_PATH, "val_set_degraded_2023.zip")
 CLEAN_DATA_PATH = os.path.join(*["..", "data", "clean"])
+
+TRAIN = dict(csv_info=os.path.join(RAW_DATA_PATH, "train_info_dirty.csv"),
+             start_zip=os.path.join(RAW_DATA_PATH, "train_set.zip"),
+             start_folder=os.path.join(RAW_DATA_PATH, "train_set"),
+             end_zip=os.path.join(CLEAN_DATA_PATH, "train_dirty.zip"),
+             end_folder=os.path.join(CLEAN_DATA_PATH, "train"),
+             name="TRAIN")
+
+VAL = dict(csv_info=os.path.join(RAW_DATA_PATH, "val_info.csv"), start_zip=os.path.join(RAW_DATA_PATH, "val_set.zip"),
+           start_folder=os.path.join(RAW_DATA_PATH, "val_set"), end_zip=os.path.join(CLEAN_DATA_PATH, "val.zip"),
+           end_folder=os.path.join(CLEAN_DATA_PATH, "val"),
+           name="VAL")
+
+VAL_DEGRADED = dict(csv_info=os.path.join(RAW_DATA_PATH, "val_info.csv"),
+                    start_zip=os.path.join(RAW_DATA_PATH, "val_set_degraded_2023.zip"),
+                    start_folder=os.path.join(RAW_DATA_PATH, "val_set_degraded"),
+                    end_zip=os.path.join(CLEAN_DATA_PATH, "val_degraded.zip"),
+                    end_folder=os.path.join(CLEAN_DATA_PATH, "val_degraded"),
+                    name="VAL_DEGRADED")
 
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
-def unzip_data():
-    with zipfile.ZipFile(FILE_ZIP, "r") as zf:
+def unzip_data(d):
+    with zipfile.ZipFile(d.get("start_zip"), "r") as zf:
         zf.extractall(RAW_DATA_PATH)
 
 
-def format_class_as_folder():
+def format_class_as_folder(d):
     # Load the CSV file
-    csv_path = os.path.join(RAW_DATA_PATH, "val_info.csv")
-    data = pd.read_csv(csv_path, header=None, names=["file", "class"])
+    csv_path = d.get("csv_info")
+    data_info = pd.read_csv(csv_path, header=None, names=["file", "class"])
 
     # Base directory where the files are currently located
-    base_dir = os.path.join(RAW_DATA_PATH, "val_set_degraded")
+    base_dir: str = d.get("start_folder")
 
     # Directory where you want to create the class folders
-    output_dir = os.path.join(CLEAN_DATA_PATH, "val_degraded")
+    output_dir = d.get("end_folder")
 
     # Ensure the output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
     # Iterate through each row in the CSV
-    for index, row in data.iterrows():
+    for index, row in data_info.iterrows():
         file_name = row["file"]  # First column (file name)
         file_class = str(row["class"])  # Second column (class)
 
@@ -46,10 +64,10 @@ def format_class_as_folder():
         shutil.move(file_path, os.path.join(class_dir, file_name))
 
 
-def zip_data():
-    with zipfile.ZipFile(os.path.join(CLEAN_DATA_PATH, "val_degraded.zip"), "w", zipfile.ZIP_DEFLATED) as zf:
+def zip_data(d):
+    with zipfile.ZipFile(d.get("end_zip"), "w", zipfile.ZIP_DEFLATED) as zf:
         # Walk through the directory structure
-        for root, dirs, files in os.walk(os.path.join(CLEAN_DATA_PATH, "val_degraded")):
+        for root, dirs, files in os.walk(d.get("end_folder")):
             for file in files:
                 # Create the full filepath by joining the root with the file
                 full_path = os.path.join(root, file)
@@ -59,23 +77,30 @@ def zip_data():
 
 
 if __name__ == '__main__':
-    start_time = time.time()
-    print("Started at:", time.strftime(DATE_FORMAT))
 
-    # Read raw/original data
-    unzip_data()
-    print("Unzipped at:", time.strftime(DATE_FORMAT))
+    for data in [TRAIN, VAL, VAL_DEGRADED]:
+        print(f"Formatting {data.get('name')}")
 
-    # Format data so that each class is a folder
-    format_class_as_folder()
-    print("Formatted at:", time.strftime(DATE_FORMAT))
+        start_time = time.time()
+        print("Started at:", time.strftime(DATE_FORMAT))
 
-    # Zip formatted data
-    zip_data()
-    print("Saved new zip at:", time.strftime(DATE_FORMAT))
+        # Read raw/original data
+        unzip_data(data)
+        print("Unzipped at:", time.strftime(DATE_FORMAT))
 
-    end_time = time.time()
-    duration = end_time - start_time
-    print(f"Script total duration: {duration:.2f} seconds")
+        # Format data so that each class is a folder
+        format_class_as_folder(data)
+        print("Formatted at:", time.strftime(DATE_FORMAT))
+
+        # Zip formatted data
+        zip_data(data)
+        print("Saved new zip at:", time.strftime(DATE_FORMAT))
+
+        end_time = time.time()
+        duration = end_time - start_time
+        print(f"Script total duration: {duration:.2f} seconds")
+
+        # Remove temp folders
+        os.rmdir(data.get("start_folder"))
 
     print("Done :)")
