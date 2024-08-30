@@ -1,6 +1,6 @@
 {
   "model_names": [
-    "05_mnv3_fine_tuned"
+    "06_mnv3_fine_tuned"
   ],
   "01_mnv3_fine_tuned": {
     "model": "mobilenet",
@@ -43,11 +43,11 @@
     "data_aug": "light"
   },
   "06_mnv3_fine_tuned": {
-    "model": "mobilenet",
+    "model": "mobilenet_freeze",
     "epochs": 100,
     "batch_size": 128,
-    "lr": 1e-4,
-    "weight_decay": 0.0001,
-    "data_aug": "heavy"
+    "lr": 1e-2,
+    "weight_decay": 0.01,
+    "data_aug": "light"
   }
 }
