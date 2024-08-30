@@ -1,0 +1,28 @@
+{
+  "model_names": [
+    "01_mnv3_fine_tuned",
+    "02_mnv3_fine_tuned",
+    "03_mnv3_fine_tuned"
+  ],
+  "01_mnv3_fine_tuned": {
+    "epochs": 50,
+    "batch_size": 128,
+    "lr": 1e-4,
+    "weight_decay": 0.01,
+    "data_aug": null
+  },
+  "02_mnv3_fine_tuned": {
+    "epochs": 50,
+    "batch_size": 128,
+    "lr": 1e-4,
+    "weight_decay": 0.01,
+    "data_aug": "light"
+  },
+  "03_mnv3_fine_tuned": {
+    "epochs": 50,
+    "batch_size": 128,
+    "lr": 1e-4,
+    "weight_decay": 0.01,
+    "data_aug": "heavy"
+  }
+}
