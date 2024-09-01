@@ -214,7 +214,8 @@ def val_step(model, data_loader, loss_fn, scheduler, device):
         # Scheduler step
         lr = None
         if scheduler is not None:
-            scheduler.step(val_loss / len(data_loader))
+            # scheduler.step(val_loss / len(data_loader)) when using reducelronplateau
+            scheduler.step()
             lr = scheduler.get_last_lr()
 
     val_loss /= len(data_loader)

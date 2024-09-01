@@ -26,6 +26,9 @@ def get_model(name):
 
 if __name__ == "__main__":
 
+    # Saved models folder
+    os.makedirs(os.path.join(DATA_PATH, "saved_models"), exist_ok=True)
+
     # Get all configurations
     f = open("config.json")
     list_config = json.load(f)
@@ -37,7 +40,7 @@ if __name__ == "__main__":
         d = list_config.get(model_name)
 
         # Datasets
-        train_ds, val_ds = get_data(TRAIN_DATA_PATH, VAL_DATA_PATH, aug_level=d.get("data_aug"), keep=0.4)
+        train_ds, val_ds = get_data(TRAIN_DATA_PATH, VAL_DATA_PATH, aug_level=d.get("data_aug"), keep=0.6)
 
         # Loaders
         train_loader = DataLoader(train_ds, batch_size=d.get("batch_size"), shuffle=True)
@@ -49,9 +52,10 @@ if __name__ == "__main__":
         # Num Epochs, Loss, Optimizer, Scheduler, Early Stopping
         epochs = d.get("epochs")
         loss_fn = nn.CrossEntropyLoss()
-        optimizer = torch.optim.Adam(m.parameters(), lr=d.get("lr"), weight_decay=d.get("weight_decay"))
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=1e-1, patience=3)
-        early_stopping = EarlyStopping(patience=10, mode='min')
+        optimizer = torch.optim.Adam(m.parameters(), lr=d.get("start_lr"), weight_decay=d.get("weight_decay"))
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=1e-1, patience=3)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=d.get("end_lr"), T_max=d.get("epochs"))
+        early_stopping = EarlyStopping(patience=5, mode='min')
 
         # Define paths for saving model and history
         model_path = os.path.join(*[DATA_PATH, "saved_models", f"{model_name}.pt"])
