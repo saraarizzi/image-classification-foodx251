@@ -1,8 +1,11 @@
 import ast
 import os
+import shutil
+import time
 import warnings
 import zipfile
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -12,10 +15,10 @@ from torchvision.transforms import v2
 
 warnings.filterwarnings("error")
 
-DATA_PATH = os.path.join("..", "data")
+DATA_PATH = "data"
 TRAIN_PATH = os.path.join(*[DATA_PATH, "clean", "train"])
-LABELED_PATH = os.path.join(DATA_PATH, "manual_labelling")
 REMOVED_PATH = os.path.join(DATA_PATH, "removed")
+ORIG_ZIP = os.path.join(DATA_PATH, "clean", "train_dirty.zip")
 
 AUG_TECHS = [
     v2.RandomHorizontalFlip(p=1),
@@ -23,8 +26,10 @@ AUG_TECHS = [
     v2.RandomErasing(p=1),
     v2.RandomRotation(degrees=45),
     v2.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.9, 1.1)),
-    v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1)
 ]
+
+CUT_OFF = 300
+PERCENTILE = 35
 
 
 def zip_data():
@@ -88,10 +93,10 @@ def get_similarities(df_vectors):
     return df_similarities
 
 
-def get_first_quartile(df_similarities):
+def get_percentile(df_similarities, perc):
     df = df_similarities.copy(deep=True)
     # Calculate threshold
-    q1 = np.percentile(df["sim"].to_list(), 25)
+    q1 = np.percentile(df["sim"].to_list(), perc)
 
     # Images with similarity score lte than threshold
     df["predicted"] = df["sim"].apply(lambda x: 1 if x <= q1 else 0)
@@ -99,14 +104,14 @@ def get_first_quartile(df_similarities):
     return df
 
 
-def remove_files(code, df_remove):
-
+def remove_files(code, df_remove, save_removed=False):
     folder = os.path.join(TRAIN_PATH, str(code))
 
     df_to_remove = df_remove[df_remove["predicted"] == 1]["image_name"]
 
     # Save files to remove
-    df_to_remove.to_csv(os.path.join(REMOVED_PATH, f"{code}_removed.csv"), index=False)
+    if save_removed:
+        df_to_remove.to_csv(os.path.join(REMOVED_PATH, f"{code}_removed.csv"), index=False)
 
     list_to_remove = df_to_remove.to_list()
 
@@ -118,10 +123,9 @@ def remove_files(code, df_remove):
 
 
 def downsize_class(class_code):
-
     folder = os.path.join(TRAIN_PATH, str(class_code))
     file_names = os.listdir(folder)
-    rnd_to_remove = np.random.choice(file_names, size=(len(file_names)-350), replace=False)
+    rnd_to_remove = np.random.choice(file_names, size=(len(file_names) - CUT_OFF), replace=False)
 
     for image_name in rnd_to_remove:
         try:
@@ -131,7 +135,6 @@ def downsize_class(class_code):
 
 
 def augment(class_code, img_name, technique):
-
     image = Image.open(os.path.join(*[TRAIN_PATH, str(class_code), img_name]))
 
     transform = v2.Compose([
@@ -149,12 +152,17 @@ def augment(class_code, img_name, technique):
 def upsize_class(class_code):
     folder = os.path.join(TRAIN_PATH, str(class_code))
     file_names = os.listdir(folder)
-    to_create = 350 - len(file_names)
+    to_create = CUT_OFF - len(file_names)
 
-    rnd_to_create = np.random.choice(file_names, size=to_create, replace=True)
+    replicate, rest = divmod(to_create, len(file_names))
+    file_name_to_create = []
+    for _ in np.arange(replicate):
+        file_name_to_create += file_names
+
+    file_name_to_create += np.random.choice(file_names, size=rest, replace=False).tolist()
 
     unique_transforms = []
-    for img_name in rnd_to_create:
+    for img_name in file_name_to_create:
 
         technique = np.random.choice(AUG_TECHS, size=1)
         while (img_name, technique[0]._get_name()) in unique_transforms:
@@ -177,25 +185,29 @@ def balance_train(df_train):
         class_name = row[1]["name"]
         class_samples = row[1]["samples"]
 
-        if class_samples > 350:
+        if class_samples > CUT_OFF:
             downsize_class(class_code)
-            print(f"Downsized class {class_name} ({class_code}): removed {class_samples-350} images")
-            removed.append(class_samples-350)
+            print(f"Downsized class {class_name} ({class_code}): removed {class_samples - CUT_OFF} images")
+            removed.append(class_samples - CUT_OFF)
             added.append(0)
-        elif class_samples == 350:
-            print(f"Class {class_name} ({class_code}): perfectly 350")
+        elif class_samples == CUT_OFF:
+            print(f"Class {class_name} ({class_code}): perfectly {CUT_OFF}")
             removed.append(0)
             added.append(0)
         else:
             upsize_class(class_code)
-            print(f"Upsized class {class_name} ({class_code}): added {350-class_samples} images")
+            print(f"Upsized class {class_name} ({class_code}): added {CUT_OFF - class_samples} images")
             removed.append(0)
-            added.append(350-class_samples)
+            added.append(CUT_OFF - class_samples)
 
     return removed, added
 
 
 if __name__ == "__main__":
+
+    # Start from formatted train_dirty.zip
+    with zipfile.ZipFile(ORIG_ZIP, "r") as zf:
+        zf.extractall(os.path.join(DATA_PATH, "clean"))
 
     os.makedirs(REMOVED_PATH, exist_ok=True)
 
@@ -205,14 +217,16 @@ if __name__ == "__main__":
     classes_names = classes_data["label"].tolist()
 
     # Remove train images marked as noise
+    num_samples = []
     for c in classes_codes:
         vectors = get_fe_vectors(c, "imagenet")
         similarities = get_similarities(vectors)
-        to_remove = get_first_quartile(similarities)
+        to_remove = get_percentile(similarities, PERCENTILE)
 
         remove_files(c, to_remove)
 
-        print(f"Progressing ... {c+1}/251 ... Removed {len(to_remove[to_remove['predicted']==1])}/{len(to_remove)}")
+        print(f"Progressing ... {c + 1}/251 ... Removed {len(to_remove[to_remove['predicted'] == 1])}/{len(to_remove)}")
+        num_samples.append(len(to_remove) - len(to_remove[to_remove['predicted'] == 1]))
 
     # Check samples distribution over classes
     num_samples = []
@@ -225,8 +239,9 @@ if __name__ == "__main__":
         "samples": num_samples
     })
 
-    # Keep 350 images for each class
+    # Keep n images for each class
     tot_removed, tot_added = balance_train(df_samples)
+    print(f"total removed: {np.sum(tot_removed)}, total added: {np.sum(tot_added)}")
 
     pd.DataFrame({
         "code": classes_codes,
@@ -234,7 +249,7 @@ if __name__ == "__main__":
         "samples": num_samples,
         "removed": tot_removed,
         "added": tot_added
-    }).to_csv(os.path.join(*[DATA_PATH, "clean", "balancing_info.csv"]), index=False)
+    }).to_csv(os.path.join(*[DATA_PATH, "clean", f"balancing_info.csv"]), index=False)
 
     # Zip final data
     zip_data()
