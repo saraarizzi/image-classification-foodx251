@@ -1,54 +1,59 @@
 {
   "model_names": [
-    "01_mnv3_fine_tuned"
+    "06_mnv3_fine_tuned"
   ],
   "01_mnv3_fine_tuned": {
     "model": "mobilenet",
     "epochs": 50,
     "batch_size": 128,
-    "start_lr": 5e-4,
-    "end_lr": 1e-6,
-    "weight_decay": 0.01,
-    "data_aug": null
+    "start_lr": 2e-4,
+    "end_lr": 1e-5,
+    "weight_decay": 0.001,
+    "data_aug": "light"
   },
   "02_mnv3_fine_tuned": {
     "model": "mobilenet",
     "epochs": 50,
     "batch_size": 128,
-    "lr": 1e-5,
-    "weight_decay": 0.01,
-    "data_aug": null
+    "start_lr": 2e-4,
+    "end_lr": 1e-5,
+    "weight_decay": 0.001,
+    "data_aug": "heavy"
   },
   "03_mnv3_fine_tuned": {
     "model": "mobilenet",
     "epochs": 50,
     "batch_size": 128,
-    "lr": 1e-6,
-    "weight_decay": 0.01,
-    "data_aug": null
+    "start_lr": 1e-4,
+    "end_lr": 1e-6,
+    "weight_decay": 0.001,
+    "data_aug": "heavy"
   },
   "04_mnv3_fine_tuned": {
     "model": "mobilenet",
     "epochs": 50,
     "batch_size": 128,
-    "lr": 1e-3,
+    "start_lr": 5e-5,
+    "end_lr": 1e-6,
     "weight_decay": 0.001,
-    "data_aug": null
+    "data_aug": "heavy"
   },
   "05_mnv3_fine_tuned": {
     "model": "mobilenet",
     "epochs": 50,
     "batch_size": 128,
-    "lr": 1e-4,
+    "start_lr": 8e-5,
+    "end_lr": 8e-6,
     "weight_decay": 0.001,
-    "data_aug": null
+    "data_aug": "heavy"
   },
   "06_mnv3_fine_tuned": {
-    "model": "mobilenet",
+    "model": "mobilenet_freeze",
     "epochs": 50,
     "batch_size": 128,
-    "lr": 1e-5,
+    "start_lr": 1e-2,
+    "end_lr": 1e-4,
     "weight_decay": 0.001,
-    "data_aug": null
+    "data_aug": "light"
   }
 }

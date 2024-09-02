@@ -75,10 +75,7 @@ def get_transforms(level=None):
             v2.RandomHorizontalFlip(p=0.5),
             v2.RandomVerticalFlip(p=0.5),
             v2.RandomRotation(degrees=45),
-            # v2.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.2),
-            # v2.GaussianBlur(kernel_size=3, sigma=1.5),
             v2.RandomInvert(p=0.5),
-            # v2.RandomGrayscale(p=0.5),
             v2.RandomSolarize(p=0.5, threshold=0.2),
             v2.RandomPosterize(p=0.5, bits=4)
         ]
