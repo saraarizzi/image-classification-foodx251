@@ -1,6 +1,10 @@
 {
   "model_names": [
-    "06_mnv3_fine_tuned"
+    "01_mnv3_fine_tuned",
+    "02_mnv3_fine_tuned",
+    "03_mnv3_fine_tuned",
+    "04_mnv3_fine_tuned",
+    "05_mnv3_fine_tuned"
   ],
   "01_mnv3_fine_tuned": {
     "model": "mobilenet",
@@ -46,14 +50,5 @@
     "end_lr": 8e-6,
     "weight_decay": 0.001,
     "data_aug": "heavy"
-  },
-  "06_mnv3_fine_tuned": {
-    "model": "mobilenet_freeze",
-    "epochs": 50,
-    "batch_size": 128,
-    "start_lr": 1e-2,
-    "end_lr": 1e-4,
-    "weight_decay": 0.001,
-    "data_aug": "light"
   }
 }
