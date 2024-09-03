@@ -328,3 +328,32 @@ def train(model, train_loader, val_loader, epochs, loss_fn, optimizer, scheduler
             break
 
     return results
+
+
+def evaluate(model, data_loader, device):
+    val_acc1, val_acc3, val_acc5 = 0, 0, 0
+    model.eval()
+
+    with torch.inference_mode():
+        for batch, (X, y) in enumerate(data_loader):
+            # Send data to GPU
+            X, y = X.to(device), y.type(torch.LongTensor).to(device)
+            y_one_hot = torch.nn.functional.one_hot(y, num_classes=251).float()
+
+            # Forward pass
+            val_pred = model(X)
+            val_pred = val_pred.squeeze()
+
+            # Calculate accuracy
+            val_acc1 += accuracy_at_k(val_pred, y_one_hot, 1)
+            val_acc3 += accuracy_at_k(val_pred, y_one_hot, 3)
+            val_acc5 += accuracy_at_k(val_pred, y_one_hot, 5)
+
+            # Clean Cache
+            torch.cuda.empty_cache()
+
+    val_acc1 /= len(data_loader)
+    val_acc3 /= len(data_loader)
+    val_acc5 /= len(data_loader)
+
+    return val_acc1, val_acc3, val_acc5
