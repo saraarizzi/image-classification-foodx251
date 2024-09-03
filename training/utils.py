@@ -124,7 +124,7 @@ class SubsetDegradation(Dataset):
 def get_degraded_data(train_path, degradation_perc):
 
     train_transforms, _ = get_transforms()
-    train_dataset = ImageFolder(train_path, transform=train_transforms)
+    train_dataset = ImageFolder(train_path)
 
     # Get portion to degrade based on degradation_perc
     to_keep_untouched_indices, to_degrade_indices = train_test_split(
@@ -133,22 +133,51 @@ def get_degraded_data(train_path, degradation_perc):
 
     # Leave untouched the 1-degradation_perc portion of the dataset
     subset_untouched = Subset(train_dataset, to_keep_untouched_indices)
-    dataset_untouched = SubsetDegradation(subset_untouched, transform=None)
+    dataset_untouched = SubsetDegradation(
+        subset_untouched,
+        transform = v2.Compose([
+            v2.ToImage(), v2.ToDtype(torch.float32, scale=True), v2.Resize((224, 224)),
+            v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+    )
 
     # Split the portion of dataset to degrade in 3 parts
-    split_indices = np.array_split(to_degrade_indices, int(len(to_degrade_indices)/3))
+    split_indices = np.array_split(to_degrade_indices, 3)
 
     # Compression
     subset_compression = Subset(train_dataset, split_indices[0])
-    dataset_compressed = SubsetDegradation(subset_compression, transform=v2.JPEG)
+    dataset_compressed = SubsetDegradation(
+        subset_compression,
+        transform=v2.Compose([
+            v2.ToDtype(torch.uint8),
+            v2.JPEG(quality=(5, 10)),
+            v2.ToImage(), v2.ToDtype(torch.float32, scale=True), v2.Resize((224, 224)),
+            v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
+    )
 
     # Blurring
     subset_blurring = Subset(train_dataset, split_indices[1])
-    dataset_blurred = SubsetDegradation(subset_blurring, transform=v2.GaussianBlur)
+    dataset_blurred = SubsetDegradation(
+        subset_blurring,
+        transform=v2.Compose([
+            v2.GaussianBlur(kernel_size=(7,15), sigma=(0.1,5.)),
+            v2.ToImage(), v2.ToDtype(torch.float32, scale=True), v2.Resize((224, 224)),
+            v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
+    )
 
     # Gaussian Noise
     subset_gaussian_noise = Subset(train_dataset, split_indices[2])
-    dataset_noisy = SubsetDegradation(subset_gaussian_noise, transform=v2.GaussianNoise)
+    dataset_noisy = SubsetDegradation(
+        subset_gaussian_noise,
+        transform=v2.Compose([
+            v2.ToImage(), v2.ToDtype(torch.float32, scale=True),
+            v2.GaussianNoise(),
+            v2.Resize((224, 224)),
+            v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+    )
 
     # Concat everything
     final_train_dataset = ConcatDataset(
