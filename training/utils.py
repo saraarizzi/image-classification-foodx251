@@ -3,9 +3,9 @@ import torch
 from matplotlib import pyplot as plt
 from sklearn.model_selection import train_test_split
 from torch import nn
-from torch.utils.data import Subset
+from torch.utils.data import Subset, Dataset, ConcatDataset
 from torchvision.datasets import ImageFolder
-from torchvision.models import mobilenet_v3_small, vit_b_16
+from torchvision.models import mobilenet_v3_small
 from torchvision.transforms import v2
 
 
@@ -104,6 +104,58 @@ def get_data(train_path, val_path, aug_level, keep=1):
     val_sample = Subset(val_dataset, val_indices)
 
     return train_sample, val_sample
+
+
+class SubsetDegradation(Dataset):
+    def __init__(self, subset, transform=None):
+        self.subset = subset
+        self.transform = transform
+
+    def __getitem__(self, index):
+        x, y = self.subset[index]
+        if self.transform:
+            x = self.transform(x)
+        return x, y
+
+    def __len__(self):
+        return len(self.subset)
+
+
+def get_degraded_data(train_path, degradation_perc):
+
+    train_transforms, _ = get_transforms()
+    train_dataset = ImageFolder(train_path, transform=train_transforms)
+
+    # Get portion to degrade based on degradation_perc
+    to_keep_untouched_indices, to_degrade_indices = train_test_split(
+        np.arange(len(train_dataset)), train_size=1-degradation_perc, stratify=train_dataset.targets, random_state=0
+    )
+
+    # Leave untouched the 1-degradation_perc portion of the dataset
+    subset_untouched = Subset(train_dataset, to_keep_untouched_indices)
+    dataset_untouched = SubsetDegradation(subset_untouched, transform=None)
+
+    # Split the portion of dataset to degrade in 3 parts
+    split_indices = np.array_split(to_degrade_indices, int(len(to_degrade_indices)/3))
+
+    # Compression
+    subset_compression = Subset(train_dataset, split_indices[0])
+    dataset_compressed = SubsetDegradation(subset_compression, transform=v2.JPEG)
+
+    # Blurring
+    subset_blurring = Subset(train_dataset, split_indices[1])
+    dataset_blurred = SubsetDegradation(subset_blurring, transform=v2.GaussianBlur)
+
+    # Gaussian Noise
+    subset_gaussian_noise = Subset(train_dataset, split_indices[2])
+    dataset_noisy = SubsetDegradation(subset_gaussian_noise, transform=v2.GaussianNoise)
+
+    # Concat everything
+    final_train_dataset = ConcatDataset(
+        [dataset_untouched, dataset_compressed, dataset_blurred, dataset_noisy]
+    )
+
+    return final_train_dataset
 
 
 def show_history(hist):
