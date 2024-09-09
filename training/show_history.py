@@ -38,7 +38,8 @@ if __name__ == "__main__":
     # model_names = list_config.get("model_names")
 
     model_names = [
-        "full_04_mnv3_fine_tuned"
+        "sixty_04_mnv3_fine_tuned",
+        "ninety_04_mnv3_fine_tuned"
     ]
 
     for model_name in model_names:
@@ -46,10 +47,4 @@ if __name__ == "__main__":
         history_path = os.path.join(*[DATA_PATH, "saved_models", f"{model_name}_history.pkl"])
         history = pickle.load(open(history_path, "rb"))
         plot_history(history)
-
-        print(model_name)
-        print(f"Stopped at: {len(history.get('val_loss'))}")
-        print(np.round(np.max(history.get("val_acc1")) * 100, 2))
-        print(np.round(np.max(history.get("val_acc3")) * 100, 2))
-        print(np.round(np.max(history.get("val_acc5")) * 100, 2))
 

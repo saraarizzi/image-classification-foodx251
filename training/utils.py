@@ -123,7 +123,6 @@ class SubsetDegradation(Dataset):
 
 def get_degraded_data(train_path, degradation_perc):
 
-    train_transforms, _ = get_transforms()
     train_dataset = ImageFolder(train_path)
 
     # Get portion to degrade based on degradation_perc

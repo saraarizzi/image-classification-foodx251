@@ -50,5 +50,14 @@
     "end_lr": 8e-6,
     "weight_decay": 0.001,
     "data_aug": "heavy"
+  },
+  "deg_06_mnv3_fine_tuned": {
+    "model": "mobilenet",
+    "epochs": 50,
+    "batch_size": 128,
+    "start_lr": 1e-5,
+    "end_lr": 1e-6,
+    "weight_decay": 0.001,
+    "data_aug": "heavy"
   }
 }

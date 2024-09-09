@@ -34,24 +34,27 @@ if __name__ == "__main__":
     # Get best model configuration
     f = open("config.json")
     list_config = json.load(f)
-    best_model = "04_mnv3_fine_tuned"
+    model_name = "04_mnv3_fine_tuned" # best model on validation
+    # model_name = "deg_06_mnv3_fine_tuned"
 
     # Degradation on train data percentage
     runs = [
-        (None, f"full_{best_model}"),
-        (0.15, f"fifteen_{best_model}"),
-        (0.30, f"thirty_{best_model}"),
-        (0.45, f"forty_five_{best_model}"),
-        (0.60, f"sixty_{best_model}"),
+        # (None, f"full_{model_name}"),
+        # (0.15, f"fifteen_{model_name}"),
+        # (0.30, f"thirty_{model_name}"),
+        # (0.45, f"forty_five_{model_name}"),
+        # (0.60, f"sixty_{model_name}"),
+        (0.90, f"ninety_{model_name}"),
+        # (0.90, f"ninety_{model_name}"),
     ]
 
     # Read HyperParams
-    d = list_config.get(best_model)
+    d = list_config.get(model_name)
 
     for run in runs:
 
         degradation_percentage = run[0]
-        model_name = run[1]
+        m_name = run[1]
 
         # Datasets
         if degradation_percentage is None:
@@ -61,12 +64,10 @@ if __name__ == "__main__":
 
             train_ds = ImageFolder(TRAIN_DATA_PATH, transform=train_transforms)
             val_ds = ImageFolder(VAL_DATA_PATH, transform=val_transforms)
-            # val_degraded_ds = ImageFolder(VAL_DEG_DATA_PATH, transform=val_transforms)
 
             # Loaders
             train_loader = DataLoader(train_ds, batch_size=d.get("batch_size"), shuffle=True)
             val_loader = DataLoader(val_ds, batch_size=d.get("batch_size"), shuffle=True)
-            # val_deg_loader = DataLoader(val_degraded_ds, batch_size=d.get("batch_size"), shuffle=True)
 
         else:
             # Validate on degraded validation set
@@ -91,8 +92,8 @@ if __name__ == "__main__":
         early_stopping = EarlyStopping(patience=5, mode='min')
 
         # Define paths for saving/loading model and history
-        model_path = os.path.join(*[DATA_PATH, "saved_models", f"{model_name}.pt"])
-        history_path = os.path.join(*[DATA_PATH, "saved_models", f"{model_name}_history.pkl"])
+        model_path = os.path.join(*[DATA_PATH, "saved_models", f"{m_name}.pt"])
+        history_path = os.path.join(*[DATA_PATH, "saved_models", f"{m_name}_history.pkl"])
 
         # Train and save
         if TRAIN:
